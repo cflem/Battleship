@@ -82,7 +82,7 @@ bool addShip (int size) {
 }
 
 void setCoordinates (struct square*** board, int x, int y, struct ship* partof) {
-  
+  (*board[x][y]).partof = partof;
 }
 
 int least (int a, int b) {
