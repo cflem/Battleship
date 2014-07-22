@@ -13,6 +13,8 @@ typedef int shot;
 #define true 1
 typedef int bool;
 
+#define PORTNO 86442
+
 struct square {
   struct ship* partof;
 };
