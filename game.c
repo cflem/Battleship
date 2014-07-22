@@ -9,7 +9,7 @@ int main (int argc, char** argv) {
   gameLoop(board, targeting, 10, 10);
 }
 
-void gameLoop (struct square** board, shot** targeting, int cols, int rows) {
+void gameLoop (struct square*** board, shot** targeting, int cols, int rows) {
   int bet = rand();
   // choose oppenent and initialize udp socket
   
@@ -114,14 +114,27 @@ void setCoordinates (struct square*** board, int x, int y, struct ship* partof) 
   (*board[x][y]).partof = partof;
 }
 
-void printTargeting (shot** targeting, int cols, int rows) {
+void printGame (struct square*** board, shot** targeting, int cols, int rows) {
   int x, y, r, c = 65;
-  printf("\033[0m  \033[34m");
+  printf("\033[0m  \033[31m");
+  for (r = 0; r < cols; r++) {
+    printf("%d ", r);
+  }
+  printf("\033[0m          \033[34m");
   for (r = 0; r < cols; r++) {
     printf("%d ", r);
   }
   printf("\033[0m\n");
   for (y = 0; y < rows; y++) {
+    printf("\033[31m%c\033[0m ", c);
+    for (x = 0; x < cols; x++) {
+      if ((*board[x][y]).partof != 0) {
+        printf("\033[32mX\033[0m ");
+      } else {
+        printf("O ");
+      }
+    }
+    printf("\033[0m        ");
     printf("\033[34m%c\033[0m ", c);
     for (x = 0; x < cols; x++) {
       if (targeting[x][y] == hit) {
@@ -133,7 +146,7 @@ void printTargeting (shot** targeting, int cols, int rows) {
       }
     }
     printf("\n\033[0m");
-    c++;
+    c++;    
   }
 }
 

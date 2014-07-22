@@ -23,12 +23,13 @@ struct ship {
 };
 
 int main (int, char**);
-void gameLoop (struct square** board, shot** targeting, int cols, int rows);
+void gameLoop (struct square*** board, shot** targeting, int cols, int rows);
 shot** initTargeting (int, int);
 struct square*** initBoard (int, int);
 void layoutBoard (struct square***);
 bool addShip (struct square***, int);
 void setCoordinates (struct square***, int, int, struct ship*);
+void printGame (struct square***, shot**, int, int);
 void printTargeting (shot**, int, int);
 void printBoard (struct square***, int, int);
 int least (int, int);
