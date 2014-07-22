@@ -52,20 +52,51 @@ bool addShip (int size) {
       struct ship* partof = malloc(sizeof(struct ship));
       (*partof).size = size;
       (*partof).hits = 0;
-      
+      int y = coordinates[0][1];
+      int x;
+      for (x = least(coordinates[0][0], coordinates[1][0]); x <= most(coordinates[0][0], coordinates[1][0]); x++) {
+        setCoordinates(board, x, y, partof);
+      }
       return true;
     } else if (abs(coordinates[0][1]-coordinates[1][1]) == size) {
+      struct ship* partof = malloc(sizeof(struct ship));
+      (*partof).size = size;
+      (*partof).hits = 0;
+      int x = coordinates[0][0];
+      int y;
+      for (y = least(coordinates[0][1], coordinates[1][1]); y <= most(coordinates[0][1], coordinates[1][1]); y++) {
+        setCoordinates(board, x, y, partof);
+      }
       return true;
     } else {
       return false;
     }
-  } else {
+ 
+      return true;
+    } else {
+      return false;
+    }
+ } else {
     return false;
   }
 }
 
 void setCoordinates (struct square*** board, int x, int y, struct ship* partof) {
   
+}
+
+int least (int a, int b) {
+  if (a < b) {
+    return a;
+  }
+  return b;
+}
+
+int most (int a, int b) {
+  if (a > b) {
+    return a;
+  }
+  return b;
 }
 
 int abs (int n) {
