@@ -44,6 +44,8 @@ void printGame (struct square***, shot**, int, int);
 void printTargeting (shot**, int, int);
 void printBoard (struct square***, int, int);
 void err (const char*);
+void clear ();
+char* trim (char*);
 int least (int, int);
 int most (int, int);
 int abs (int);

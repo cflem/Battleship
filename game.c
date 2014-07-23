@@ -9,7 +9,7 @@ int main (int argc, char** argv) {
 }
 
 void gameLoop (struct square*** board, shot** targeting, int cols, int rows) {
-  int bet = rand(), ships = 5, hsockfd, sockfd, portno = 86442, n;
+  int bet = rand(), ships = 5, hsockfd, sockfd, portno = 8644, n;
   char buffer[256];
   bool skip = false;
   bool hosting = false;
@@ -31,9 +31,10 @@ void gameLoop (struct square*** board, shot** targeting, int cols, int rows) {
     serv_addr.sin_port = htons(portno);
     if (bind(hsockfd, (struct sockaddr*) &serv_addr, sizeof(serv_addr)) < 0)
       err("Error binding socket.");
+    printf("Waiting for opponent...\n");
     listen(hsockfd, 5);
     clilen = sizeof(cli_addr);
-    sockfd = accept(sockfd, (struct sockaddr*) &cli_addr, &clilen);
+    sockfd = accept(hsockfd, (struct sockaddr*) &cli_addr, &clilen);
     if (sockfd < 0)
       err("Error accepting client.");
     bzero(buffer, 256);
@@ -52,6 +53,7 @@ void gameLoop (struct square*** board, shot** targeting, int cols, int rows) {
     bzero(buffer, 256);
     printf("Input host address:\n");
     fgets(buffer, 255, stdin);
+    trim(buffer);
     struct sockaddr_in serv_addr;
     struct hostent* server;
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -71,7 +73,7 @@ void gameLoop (struct square*** board, shot** targeting, int cols, int rows) {
     if (n < 0)
       err("Error reading from socket.");
     if (strncmp(buffer, "BET ", sizeof(char)*4) != 0)
-      err("Server protocol error.");
+      err("Protocol error.");
     int tobeat = atoi(buffer+(sizeof(char)*4));
     bzero(buffer, 256);
     if (bet > tobeat) {
@@ -88,27 +90,28 @@ void gameLoop (struct square*** board, shot** targeting, int cols, int rows) {
     }
   }
 
-  while (true) { // PLAY!!!
+  while (true) {
+
     // THEIR TURN
     if (!skip) {
-      printf("Waiting for opponent...\n");
+      printf("\nWaiting for opponent...\n");
       bzero(buffer, 256);
       n = read(sockfd, buffer, 255);
       if (n < 0)
         err("Error reading from socket.");
       if (strncmp(buffer, "FIRE ", 5) != 0)
-        err("Server protocol error.");
+        err("Protocol error.");
       char a = buffer[5], b = buffer[6];
-      int x = b - 'A', y = a - '0';
+      int x = b - '0', y = a - 'A';
       if ((*board[x][y]).partof != 0) {
         (*board[x][y]).ishit = true;
         struct ship* partof = (*board[x][y]).partof;
         if (++(*partof).hits == (*partof).size) {
           if (--ships == 0) {
             n = write(sockfd, "UNCLE\n", 6);
-            system("clear");
+            clear();
             printGame(board, targeting, cols, rows);
-            printf("\n\n\033[1;31mSorry, you lose...\033[0m\n");
+            printf("\n\033[1;31mSorry, you lose...\033[0m\n");
             close(sockfd);
             if (hosting)
               close(hsockfd);
@@ -117,10 +120,14 @@ void gameLoop (struct square*** board, shot** targeting, int cols, int rows) {
             bzero(buffer, 256);
             snprintf(buffer, 255, "SUNK %d\n", (*partof).type);
             n = write(sockfd, buffer, strlen(buffer));
+            clear();
+            printGame(board, targeting, cols, rows);
             printf("\n\033[1;31mYour %s has been sunk!\033[0m\n", shiptype((*partof).type));
           }
         } else {
           n = write(sockfd, "HIT\n", 4);
+          clear();
+          printGame(board, targeting, cols, rows);
           printf("\n\033[1;31mYour %s has been hit!\033[0m\n", shiptype((*partof).type));
         }
       } else {
@@ -131,13 +138,14 @@ void gameLoop (struct square*** board, shot** targeting, int cols, int rows) {
       if (n < 0)
         err("Error writing to socket.");
     }
-    skip = false;
 
     // YOUR TURN
-    system("clear");
-    bzero(buffer, 256);
-    printGame(board, targeting, cols, rows);
+    if (skip) {
+      clear();
+      printGame(board, targeting, cols, rows);
+    }
     printf("\n\nFire when ready:\n");
+    bzero(buffer, 256);
     fgets(buffer, 4, stdin);
     char a = buffer[0], b = buffer[1];
     bzero(buffer, 256);
@@ -149,7 +157,7 @@ void gameLoop (struct square*** board, shot** targeting, int cols, int rows) {
     n = read(sockfd, buffer, 255);
     if (n < 0)
       err("Error reading from socket.");
-    int x = b - 'A', y = a - '0';
+    int x = b - '0', y = a - 'A';
     if (strncmp(buffer, "HIT", 3) == 0) {
       targeting[x][y] = hit;
       printf("\n\033[1;32mIt's a hit!\033[0m\n");
@@ -158,9 +166,9 @@ void gameLoop (struct square*** board, shot** targeting, int cols, int rows) {
       printf("\n\033[1;32mYou sunk your opponent's %s!\033[0m\n", shiptype(buffer[6]-'0'));
     } else if (strncmp(buffer, "UNCLE", 5) == 0) {
       targeting[x][y] = hit;
-      system("clear");
+      clear();
       printGame(board, targeting, cols, rows);
-      printf("\n\n\033[1;32mCongradulations, you win!\033[0m\n");
+      printf("\n\033[1;32mCongradulations, you win!\033[0m\n");
       close(sockfd);
       if (hosting)
         close(hsockfd);
@@ -169,13 +177,15 @@ void gameLoop (struct square*** board, shot** targeting, int cols, int rows) {
       targeting[x][y] = miss;
       printf("\nYou missed...\n");
     } else {
-      err("Server protocol error.");
+      err("Protocol error.");
     }
+    skip = false;
 
   }
 }
 
 const char* shiptype (int type) {
+  printf("shiptype %d\n", type);
   switch (type) {
     case carrier:
       return "aircraft carrier";
@@ -221,30 +231,37 @@ struct square*** initBoard (int cols, int rows) {
 }
 
 void layoutBoard (struct square*** board) {
+  clear();
   printBoard(board, 10, 10);
   do {
     printf("Input coordinates for your aircraft carrier (5 spaces):\n");
   } while(!addShip(board, carrier, 5));
-  printBoard(board, 10, 10);
 
+  clear();
+  printBoard(board, 10, 10);
   do {
     printf("Input coordinates for your battleship (4 spaces):\n");
   } while (!addShip(board, battleship, 4));
-  printBoard(board, 10, 10);
 
+  clear();
+  printBoard(board, 10, 10);
   do {
     printf("Input coordinates for your submarine (3 spaces):\n");
   } while (!addShip(board, submarine, 3));
-  printBoard(board, 10, 10);
 
+  clear();
+  printBoard(board, 10, 10);
   do {
     printf("Input coordinates for your cruiser (3 spaces):\n");
   } while (!addShip(board, cruiser, 3));
-  printBoard(board, 10, 10);
 
+  clear();
+  printBoard(board, 10, 10);
   do {
     printf("Input coordinates for your destroyer (2 spaces):\n");
   } while (!addShip(board, destroyer, 2));
+
+  clear();
   printBoard(board, 10, 10);
 }
 
@@ -357,8 +374,23 @@ void printBoard (struct square*** board, int cols, int rows) {
 }
 
 void err (const char* msg) {
-  fprintf(stderr, "%s", msg);
+  fprintf(stderr, "%s\n", msg);
   exit(EXIT_SUCCESS);
+}
+
+void clear () {
+  system("clear");
+}
+
+char* trim (char* str) {
+  char* end;
+  while (isspace(*str)) str++;
+  if ((*str) == 0)
+    return str;
+  end = str + strlen(str) - 1;
+  while(end > str && isspace(*end)) end--;
+  *(end+1) = 0;
+  return str;
 }
 
 int least (int a, int b) {
