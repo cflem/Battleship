@@ -2,7 +2,7 @@
 
 int main (int argc, char** argv) {
   struct square*** board = initBoard(10, 10);
-  layoutBoard(board);
+  layoutBoard(board, 10, 10);
   shot** targeting = initTargeting(10, 10);
   gameLoop(board, targeting, 10, 10);
   return 0;
@@ -105,8 +105,7 @@ void gameLoop (struct square*** board, shot** targeting, int cols, int rows) {
       int x = b - '0', y = a - 'A';
       if ((*board[x][y]).partof != 0) {
         (*board[x][y]).ishit = true;
-        struct ship* partof = (*board[x][y]).partof;
-        if (++(*partof).hits == (*partof).size) {
+        if (++(*(*board[x][y]).partof).hits == (*(*board[x][y]).partof).size) {
           if (--ships == 0) {
             n = write(sockfd, "UNCLE\n", 6);
             clear();
@@ -118,17 +117,17 @@ void gameLoop (struct square*** board, shot** targeting, int cols, int rows) {
             return;
           } else {
             bzero(buffer, 256);
-            snprintf(buffer, 255, "SUNK %d\n", (*partof).type);
+            snprintf(buffer, 255, "SUNK %d\n", (*(*board[x][y]).partof).type);
             n = write(sockfd, buffer, strlen(buffer));
             clear();
             printGame(board, targeting, cols, rows);
-            printf("\n\033[1;31mYour %s has been sunk!\033[0m\n", shiptype((*partof).type));
+            printf("\n\033[1;31mYour %s has been sunk!\033[0m\n", shiptype((*(*board[x][y]).partof).type));
           }
         } else {
           n = write(sockfd, "HIT\n", 4);
           clear();
           printGame(board, targeting, cols, rows);
-          printf("\n\033[1;31mYour %s has been hit!\033[0m\n", shiptype((*partof).type));
+          printf("\n\033[1;31mYour %s has been hit!\033[0m\n", shiptype((*(*board[x][y]).partof).type));
         }
       } else {
         n = write(sockfd, "MISS\n", 5);
@@ -185,7 +184,6 @@ void gameLoop (struct square*** board, shot** targeting, int cols, int rows) {
 }
 
 const char* shiptype (int type) {
-  printf("shiptype %d\n", type);
   switch (type) {
     case carrier:
       return "aircraft carrier";
@@ -230,42 +228,42 @@ struct square*** initBoard (int cols, int rows) {
   return board;
 }
 
-void layoutBoard (struct square*** board) {
+void layoutBoard (struct square*** board, int cols, int rows) {
   clear();
-  printBoard(board, 10, 10);
+  printBoard(board, cols, rows);
   do {
     printf("Input coordinates for your aircraft carrier (5 spaces):\n");
-  } while(!addShip(board, carrier, 5));
+  } while(!addShip(board, cols, rows, carrier, 5));
 
   clear();
-  printBoard(board, 10, 10);
+  printBoard(board, cols, rows);
   do {
     printf("Input coordinates for your battleship (4 spaces):\n");
-  } while (!addShip(board, battleship, 4));
+  } while (!addShip(board, cols, rows, battleship, 4));
 
   clear();
-  printBoard(board, 10, 10);
+  printBoard(board, cols, rows);
   do {
     printf("Input coordinates for your submarine (3 spaces):\n");
-  } while (!addShip(board, submarine, 3));
+  } while (!addShip(board, cols, rows, submarine, 3));
 
   clear();
-  printBoard(board, 10, 10);
+  printBoard(board, cols, rows);
   do {
     printf("Input coordinates for your cruiser (3 spaces):\n");
-  } while (!addShip(board, cruiser, 3));
+  } while (!addShip(board, cols, rows, cruiser, 3));
 
   clear();
-  printBoard(board, 10, 10);
+  printBoard(board, cols, rows);
   do {
     printf("Input coordinates for your destroyer (2 spaces):\n");
-  } while (!addShip(board, destroyer, 2));
+  } while (!addShip(board, cols, rows, destroyer, 2));
 
   clear();
-  printBoard(board, 10, 10);
+  printBoard(board, cols, rows);
 }
 
-bool addShip (struct square*** board, int type, int size) {
+bool addShip (struct square*** board, int cols, int rows, int type, int size) {
   char buffer[4] = {0, 0, 0, 0};
   int coordinates[2][2] = {{0, 0}, {0, 0}};
   printf("Start coordinate:\n");
@@ -276,7 +274,9 @@ bool addShip (struct square*** board, int type, int size) {
   fgets(buffer, 4, stdin);
   coordinates[1][1] = buffer[0]-'A';
   coordinates[1][0] = buffer[1]-'0';
-  if (!(coordinates[0][0] != coordinates[1][0]) != !(coordinates[0][1] != coordinates[1][1])) {
+
+  // Bounds Checking
+  if ((!(coordinates[0][0] != coordinates[1][0]) != !(coordinates[0][1] != coordinates[1][1])) && (coordinates[0][0] < cols && coordinates[0][0] >= 0 && coordinates[0][1] < rows && coordinates[0][1] >= 0 && coordinates[1][0] < cols && coordinates[1][0] >= 0 && coordinates[1][1] < rows && coordinates[1][1] >= 0)) {
     if (abs(coordinates[0][0]-coordinates[1][0]) == (size-1)) {
       struct ship* partof = malloc(sizeof(struct ship));
       (*partof).size = size;
