@@ -9,28 +9,55 @@ int main (int argc, char** argv) {
 }
 
 void gameLoop (struct square*** board, shot** targeting, int cols, int rows) {
-  int bet = rand();
-  int ships = 5;
+  int bet = rand(), ships = 5, hsockfd, sockfd, portno = 86442, n;
   char buffer[256];
+  bool skip = false;
+  bool hosting = false;
   bzero(buffer, 256);
   while (buffer[0] != 'H' && buffer[0] != 'h' && buffer[0] != 'J' && buffer[0] != 'j') {
     printf("Host or Join Game? (H/J) ");
     fgets(buffer, 3, stdin);
   }
   if (buffer[0] == 'H' || buffer[0] == 'h') {
-    
+    hosting = true;
+    socklen_t clilen;
+    struct sockaddr_in serv_addr, cli_addr;
+    hsockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0)
+      err("Error opening socket.");
+    bzero((char*) &serv_addr, sizeof(serv_addr));
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_addr.s_addr = INADDR_ANY;
+    serv_addr.sin_port = htons(portno);
+    if (bind(hsockfd, (struct sockaddr*) &serv_addr, sizeof(serv_addr)) < 0)
+      err("Error binding socket.");
+    listen(hsockfd, 5);
+    clilen = sizeof(cli_addr);
+    sockfd = accept(sockfd, (struct sockaddr*) &cli_addr, &clilen);
+    if (sockfd < 0)
+      err("Error accepting client.");
+    bzero(buffer, 256);
+    snprintf(buffer, 255, "BET %d\n", bet);
+    n = write(sockfd, buffer, strlen(buffer));
+    if (n < 0)
+      err("Error writing to socket.");
+    bzero(buffer, 256);
+    n = read(sockfd, buffer, 255);
+    if (n < 0)
+      err("Error reading from socket.");
+    if (strncmp(buffer, "FOLD", 4) == 0) {
+      skip = true;
+    }
   } else {
     bzero(buffer, 256);
     printf("Input host address:\n");
     fgets(buffer, 255, stdin);
-    int sockfd, portno = 86442, n;
     struct sockaddr_in serv_addr;
     struct hostent* server;
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0)
       err("Error opening socket.");
     server = gethostbyname(buffer);
-    bzero(buffer, 256);
     if (server == NULL)
       err("Error, no such host.");
     bzero((char*) &serv_addr, sizeof(serv_addr));
@@ -39,6 +66,7 @@ void gameLoop (struct square*** board, shot** targeting, int cols, int rows) {
     serv_addr.sin_port = htons(portno);
     if (connect(sockfd, (struct sockaddr*) &serv_addr, sizeof(serv_addr)) < 0)
       err("Error connecting.");
+    bzero(buffer, 256);
     n = read(sockfd, buffer, 255);
     if (n < 0)
       err("Error reading from socket.");
@@ -51,52 +79,18 @@ void gameLoop (struct square*** board, shot** targeting, int cols, int rows) {
       n = write(sockfd, buffer, strlen(buffer));
       if (n < 0)
         err("Error writing to socket.");
-
-      // YOUR TURN
-      system("clear");
-      bzero(buffer, 256);
-      printGame(board, targeting, cols, rows);
-      printf("\n\nFire when ready:\n");
-      fgets(buffer, 4, stdin);
-      char a = buffer[0], b = buffer[1];
-      bzero(buffer, 256);
-      snprintf(buffer, 255, "FIRE %c%c\n", a, b);
-      n = write(sockfd, buffer, strlen(buffer));
-      if (n < 0)
-        err("Error writing to socket.");
-      bzero(buffer, 256);
-      n = read(sockfd, buffer, 255);
-      if (n < 0)
-        err("Error reading from socket.");
-      int x = b - 'A', y = a - '0';
-      if (strncmp(buffer, "HIT", 3) == 0) {
-        targeting[x][y] = hit;
-        printf("\n\033[1;32mIt's a hit!\033[0m\n");
-      } else if (strncmp(buffer, "SUNK ", 5) == 0) {
-        targeting[x][y] = hit;
-        printf("\n\033[1;32mYou sunk your opponent's %s!\033[0m\n", shiptype(buffer[6]-'0'));
-      } else if (strncmp(buffer, "UNCLE", 5) == 0) {
-        targeting[x][y] = hit;
-        system("clear");
-        printGame(board, targeting, cols, rows);
-        printf("\n\n\033[1;32mCongradulations, you win!\033[0m\n");
-        close(sockfd);
-        return;
-      } else if (strncmp(buffer, "MISS", 4) == 0) {
-        targeting[x][y] = miss;
-        printf("\nYou missed...\n");
-      } else {
-        err("Server protocol error.");
-      }
-
+      skip = true;
     } else {
       strncpy(buffer, "FOLD\n", 4);
       n = write(sockfd, buffer, strlen(buffer));
       if (n < 0)
         err("Error writing to socket.");
     }
-    while (true) { // PLAY!!!
-      // THEIR TURN
+  }
+
+  while (true) { // PLAY!!!
+    // THEIR TURN
+    if (!skip) {
       printf("Waiting for opponent...\n");
       bzero(buffer, 256);
       n = read(sockfd, buffer, 255);
@@ -115,6 +109,10 @@ void gameLoop (struct square*** board, shot** targeting, int cols, int rows) {
             system("clear");
             printGame(board, targeting, cols, rows);
             printf("\n\n\033[1;31mSorry, you lose...\033[0m\n");
+            close(sockfd);
+            if (hosting)
+              close(hsockfd);
+            return;
           } else {
             bzero(buffer, 256);
             snprintf(buffer, 255, "SUNK %d\n", (*partof).type);
@@ -132,47 +130,48 @@ void gameLoop (struct square*** board, shot** targeting, int cols, int rows) {
       (*board[x][y]).ishit = true;
       if (n < 0)
         err("Error writing to socket.");
-
-      // YOUR TURN
-      system("clear");
-      bzero(buffer, 256);
-      printGame(board, targeting, cols, rows);
-      printf("\n\nFire when ready:\n");
-      fgets(buffer, 4, stdin);
-      a = buffer[0];
-      b = buffer[1];
-      bzero(buffer, 256);
-      snprintf(buffer, 255, "FIRE %c%c\n", a, b);
-      n = write(sockfd, buffer, strlen(buffer));
-      if (n < 0)
-        err("Error writing to socket.");
-      bzero(buffer, 256);
-      n = read(sockfd, buffer, 255);
-      if (n < 0)
-        err("Error reading from socket.");
-      x = b - 'A';
-      y = a - '0';
-      if (strncmp(buffer, "HIT", 3) == 0) {
-        targeting[x][y] = hit;
-        printf("\n\033[1;32mIt's a hit!\033[0m\n");
-      } else if (strncmp(buffer, "SUNK ", 5) == 0) {
-        targeting[x][y] = hit;
-        printf("\n\033[1;32mYou sunk your opponent's %s!\033[0m\n", shiptype(buffer[6]-'0'));
-      } else if (strncmp(buffer, "UNCLE", 5) == 0) {
-        targeting[x][y] = hit;
-        system("clear");
-        printGame(board, targeting, cols, rows);
-        printf("\n\n\033[1;32mCongradulations, you win!\033[0m\n");
-        close(sockfd);
-        return;
-      } else if (strncmp(buffer, "MISS", 4) == 0) {
-        targeting[x][y] = miss;
-        printf("\nYou missed...\n");
-      } else {
-        err("Server protocol error.");
-      }
-
     }
+    skip = false;
+
+    // YOUR TURN
+    system("clear");
+    bzero(buffer, 256);
+    printGame(board, targeting, cols, rows);
+    printf("\n\nFire when ready:\n");
+    fgets(buffer, 4, stdin);
+    char a = buffer[0], b = buffer[1];
+    bzero(buffer, 256);
+    snprintf(buffer, 255, "FIRE %c%c\n", a, b);
+    n = write(sockfd, buffer, strlen(buffer));
+    if (n < 0)
+      err("Error writing to socket.");
+    bzero(buffer, 256);
+    n = read(sockfd, buffer, 255);
+    if (n < 0)
+      err("Error reading from socket.");
+    int x = b - 'A', y = a - '0';
+    if (strncmp(buffer, "HIT", 3) == 0) {
+      targeting[x][y] = hit;
+      printf("\n\033[1;32mIt's a hit!\033[0m\n");
+    } else if (strncmp(buffer, "SUNK ", 5) == 0) {
+      targeting[x][y] = hit;
+      printf("\n\033[1;32mYou sunk your opponent's %s!\033[0m\n", shiptype(buffer[6]-'0'));
+    } else if (strncmp(buffer, "UNCLE", 5) == 0) {
+      targeting[x][y] = hit;
+      system("clear");
+      printGame(board, targeting, cols, rows);
+      printf("\n\n\033[1;32mCongradulations, you win!\033[0m\n");
+      close(sockfd);
+      if (hosting)
+        close(hsockfd);
+      return;
+    } else if (strncmp(buffer, "MISS", 4) == 0) {
+      targeting[x][y] = miss;
+      printf("\nYou missed...\n");
+    } else {
+      err("Server protocol error.");
+    }
+
   }
 }
 
