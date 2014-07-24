@@ -164,7 +164,7 @@ void gameLoop (struct square*** board, shot** targeting, int cols, int rows) {
       printf("\n\033[1;32mIt's a hit!\033[0m\n");
     } else if (strncmp(buffer, "SUNK ", 5) == 0) {
       targeting[x][y] = hit;
-      printf("\n\033[1;32mYou sunk your opponent's %s!\033[0m\n", shiptype(buffer[6]-'0'));
+      printf("\n\033[1;32mYou sunk your opponent's %s!\033[0m\n", shiptype(buffer[5]-'0'));
     } else if (strncmp(buffer, "UNCLE", 5) == 0) {
       targeting[x][y] = hit;
       clear();
