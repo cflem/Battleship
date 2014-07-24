@@ -145,10 +145,14 @@ void gameLoop (struct square*** board, shot** targeting, int cols, int rows) {
       clear();
       printGame(board, targeting, cols, rows);
     }
-    printf("\n\nFire when ready:\n");
-    bzero(buffer, 256);
-    fgets(buffer, 4, stdin);
-    char a = buffer[0], b = buffer[1];
+    char a, b;
+    do {
+      printf("\n\nFire when ready:\n");
+      bzero(buffer, 256);
+      fgets(buffer, 4, stdin);
+      a = buffer[0];
+      b = buffer[1];
+    } while ((a-'A') < 0 || (a-'A') >= rows || (b-'0') < 0 || (b-'0') >= cols);
     bzero(buffer, 256);
     snprintf(buffer, 255, "FIRE %c%c\n", a, b);
     n = write(sockfd, buffer, strlen(buffer));
