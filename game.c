@@ -131,6 +131,8 @@ void gameLoop (struct square*** board, shot** targeting, int cols, int rows) {
         }
       } else {
         n = write(sockfd, "MISS\n", 5);
+        clear();
+        printGame(board, targeting, cols, rows);
         printf("\nYour opponent missed.\n");
       }
       (*board[x][y]).ishit = true;
