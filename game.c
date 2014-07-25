@@ -13,7 +13,7 @@ void gameLoop (struct square*** board, shot** targeting, int cols, int rows) {
   char buffer[256];
   bool skip = false;
   bool hosting = false;
-  bzero(buffer, 256);
+  memset(buffer, 0, 256);
   while (buffer[0] != 'H' && buffer[0] != 'h' && buffer[0] != 'J' && buffer[0] != 'j') {
     printf("Host or Join Game? (H/J) ");
     fgets(buffer, 3, stdin);
@@ -25,7 +25,7 @@ void gameLoop (struct square*** board, shot** targeting, int cols, int rows) {
     hsockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0)
       err("Error opening socket.");
-    bzero((char*) &serv_addr, sizeof(serv_addr));
+    memset((char*) &serv_addr, 0, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_addr.s_addr = INADDR_ANY;
     serv_addr.sin_port = htons(portno);
@@ -37,12 +37,12 @@ void gameLoop (struct square*** board, shot** targeting, int cols, int rows) {
     sockfd = accept(hsockfd, (struct sockaddr*) &cli_addr, &clilen);
     if (sockfd < 0)
       err("Error accepting client.");
-    bzero(buffer, 256);
+    memset(buffer, 0, 256);
     snprintf(buffer, 255, "BET %d\n", bet);
     n = write(sockfd, buffer, strlen(buffer));
     if (n < 0)
       err("Error writing to socket.");
-    bzero(buffer, 256);
+    memset(buffer, 0, 256);
     n = read(sockfd, buffer, 255);
     if (n < 0)
       err("Error reading from socket.");
@@ -50,7 +50,7 @@ void gameLoop (struct square*** board, shot** targeting, int cols, int rows) {
       skip = true;
     }
   } else {
-    bzero(buffer, 256);
+    memset(buffer, 0, 256);
     printf("Input host address:\n");
     fgets(buffer, 255, stdin);
     trim(buffer);
@@ -62,20 +62,20 @@ void gameLoop (struct square*** board, shot** targeting, int cols, int rows) {
     server = gethostbyname(buffer);
     if (server == NULL)
       err("Error, no such host.");
-    bzero((char*) &serv_addr, sizeof(serv_addr));
+    memset((char*) &serv_addr, 0, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
-    bcopy((char*) server->h_addr, (char*) &serv_addr.sin_addr.s_addr, server->h_length);
+    memcpy((char*) &serv_addr.sin_addr.s_addr, (char*) server->h_addr, server->h_length);
     serv_addr.sin_port = htons(portno);
     if (connect(sockfd, (struct sockaddr*) &serv_addr, sizeof(serv_addr)) < 0)
       err("Error connecting.");
-    bzero(buffer, 256);
+    memset(buffer, 0, 256);
     n = read(sockfd, buffer, 255);
     if (n < 0)
       err("Error reading from socket.");
     if (strncmp(buffer, "BET ", sizeof(char)*4) != 0)
       err("Protocol error.");
     int tobeat = atoi(buffer+(sizeof(char)*4));
-    bzero(buffer, 256);
+    memset(buffer, 0, 256);
     if (bet > tobeat) {
       snprintf(buffer, 255, "RAISE %d\n", bet);
       n = write(sockfd, buffer, strlen(buffer));
@@ -95,7 +95,7 @@ void gameLoop (struct square*** board, shot** targeting, int cols, int rows) {
     // THEIR TURN
     if (!skip) {
       printf("\nWaiting for opponent...\n");
-      bzero(buffer, 256);
+      memset(buffer, 0, 256);
       n = read(sockfd, buffer, 255);
       if (n < 0)
         err("Error reading from socket.");
@@ -116,7 +116,7 @@ void gameLoop (struct square*** board, shot** targeting, int cols, int rows) {
               close(hsockfd);
             return;
           } else {
-            bzero(buffer, 256);
+            memset(buffer, 0, 256);
             snprintf(buffer, 255, "SUNK %d\n", (*(*board[x][y]).partof).type);
             n = write(sockfd, buffer, strlen(buffer));
             clear();
@@ -148,17 +148,17 @@ void gameLoop (struct square*** board, shot** targeting, int cols, int rows) {
     char a, b;
     do {
       printf("\n\nFire when ready:\n");
-      bzero(buffer, 256);
+      memset(buffer, 0, 256);
       fgets(buffer, 4, stdin);
       a = buffer[0];
       b = buffer[1];
     } while ((a-'A') < 0 || (a-'A') >= rows || (b-'0') < 0 || (b-'0') >= cols);
-    bzero(buffer, 256);
+    memset(buffer, 0, 256);
     snprintf(buffer, 255, "FIRE %c%c\n", a, b);
     n = write(sockfd, buffer, strlen(buffer));
     if (n < 0)
       err("Error writing to socket.");
-    bzero(buffer, 256);
+    memset(buffer, 0, 256);
     n = read(sockfd, buffer, 255);
     if (n < 0)
       err("Error reading from socket.");
